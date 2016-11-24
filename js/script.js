@@ -157,10 +157,11 @@ function generateGraph(flag, sensor, actTime) {
             tmpDataTemperature.push(tmp.actualTemp);
             tmpDataHumidity.push(tmp.actualHum);
             
+            var lineColor = getRandomColor();
             dataTemperature.push({label: "Sensor " + tmp.id, data: tmpDataTemperature, fill: false,
-                borderWidth: 3, borderColor : getRandomColor(),});
+                borderWidth: 3, borderColor : lineColor,});
             dataHumidity.push({label: "Sensor " + tmp.id, data: tmpDataHumidity, fill: false,
-                borderWidth: 3, borderColor : getRandomColor(),});
+                borderWidth: 3, borderColor : lineColor,});
 
             tmpDataTemperature = [];
             tmpDataHumidity = [];
