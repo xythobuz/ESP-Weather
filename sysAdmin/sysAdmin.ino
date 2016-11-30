@@ -7,6 +7,8 @@
 #include <WebSocketServer.h>
 #include <WiFiServer.h>
 #include <EEPROM.h>
+#include <DNSServer.h>
+#include <WiFiManager.h>
 
 #define NTP_PORT 2392
 #define MAX_WAIT_TIME 550
@@ -29,8 +31,9 @@ ESP8266WebServer server(80);
 WiFiServer serverSocket(2391);
 WebSocketServer webSocketServer;
 
-const char* ssid = "SysadminWLAN";
-const char* password = "sysadmin";
+#define DEFAULT_SSID "ESP-Weather"
+#define DEFAULT_PASS "testtest"
+
 IPAddress broadcastIP;
 
 struct __attribute__((__packed__)) Measurement {
@@ -85,7 +88,7 @@ PersistentStorage readMemory() {
     Serial.println((b << 8) | a);
     s.header.count = 0;
   } else {
-    Serial.println("Checksum ok");  
+    Serial.println("Checksum ok");
   }
   return s;
 }
@@ -148,14 +151,20 @@ void handleNotFound(){
 }
 
 void setup(void) {
-  SHT21.begin();
-  
   EEPROM.begin(512);
-    
+   
   // Debugging
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
   Serial.println("");
+
+  SHT21.begin();
+  
+  WiFiManager wifiManager;
+  // use one or the other, never both!
+  wifiManager.autoConnect(DEFAULT_SSID, DEFAULT_PASS);
+  //wifiManager.startConfigPortal(DEFAULT_SSID, DEFAULT_PASS);
+
+  storage = readMemory();
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
@@ -163,14 +172,10 @@ void setup(void) {
     Serial.print(".");
   }
   Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-    
-  broadcastIP = ~WiFi.subnetMask() | WiFi.gatewayIP();
   
-  storage = readMemory();
+  broadcastIP = ~WiFi.subnetMask() | WiFi.gatewayIP();
   
   server.on("/", handleRoot);
   server.onNotFound(handleNotFound);
@@ -186,10 +191,12 @@ void setup(void) {
   
   Udp.begin(localPort);
   Serial.println("HTTP server and UDP started");
+  
 }
 
 void loop(void){
   server.handleClient();
+  Serial.println(SHT21.getTemperature());
 
   // Websocket fuer Browser
   WiFiClient client = serverSocket.available();
