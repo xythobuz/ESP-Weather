@@ -196,7 +196,6 @@ void setup(void) {
 
 void loop(void){
   server.handleClient();
-  Serial.println(SHT21.getTemperature());
 
   // Websocket fuer Browser
   WiFiClient client = serverSocket.available();
