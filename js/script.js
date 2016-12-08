@@ -117,10 +117,10 @@ function generateView(arrSensor, actTime) {
 
 function generateGraph(flag, sensor, actTime) {
     $('#contentPanel').append(`<div class="row">
-                                <div class="col-md-6 col-lg-6">
+                                <div class="col-sm-12 col-md-12 col-lg-6">
                                     <canvas id="temperaturChart"></canvas>
                                 </div>
-                                <div class="col-md-6 col-lg-6">
+                                <div class="col-sm-12 col-md-12 col-lg-6">
                                     <canvas id="humidityChart"></canvas>
                                 </div>
                             </div>`);
