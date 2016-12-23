@@ -2,7 +2,7 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
-#include "SHT21.h"
+#include <SHT21.h>
 #include <vector>
 #include <WebSocketServer.h>
 #include <WiFiServer.h>
@@ -109,7 +109,7 @@ const char* htmlBegin = "<html>\
   <head>\
     <title>Sysadmin</title>\
     <script src=\"http://hoegerle-home.de/sysAdmin/js/jquery-3.1.1.min.js\"></script>\
-    <script src=\"http://hoegerle-home.de/sysAdmin/js/bootstrap.min.js\"></script>\ 
+    <script src=\"http://hoegerle-home.de/sysAdmin/js/bootstrap.min.js\"></script>\
     <script src=\"http://hoegerle-home.de/sysAdmin/js/Chart.bundle.min.js\"></script>\
     <script src=\"http://hoegerle-home.de/sysAdmin/js/script.js\"></script>\
     <link rel=\"stylesheet\" href=\"http://hoegerle-home.de/sysAdmin/css/bootstrap.min.css\" />\
