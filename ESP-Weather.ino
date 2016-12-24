@@ -6,13 +6,20 @@
 #include <vector>
 #include <WebSocketServer.h>
 #include <WiFiServer.h>
-#include <EEPROM.h>
 #include <DNSServer.h>
 #include <WiFiManager.h>
+#include "storage.h"
 
+#define WEB_PORT 80
+#define BROADCAST_PORT 2390
+#define WEBSOCKET_PORT 2391
 #define NTP_PORT 2392
-#define MAX_WAIT_TIME 550
-#define EEPROM_SIZE 512
+
+#define DEFAULT_SSID "ESP-Weather"
+#define DEFAULT_PASS "testtest"
+
+#define MAX_BROADCAST_WAIT_TIME 550
+#define NTP_RETRY_TIMEOUT 2000
 
 // NTP-Client
 IPAddress timeServerIP; 
@@ -27,79 +34,21 @@ byte storeAtBoot = 1;
 unsigned long lastNTP = 0;
 
 SHT21 SHT21;
-ESP8266WebServer server(80);
-WiFiServer serverSocket(2391);
+ESP8266WebServer server(WEB_PORT);
+WiFiServer serverSocket(WEBSOCKET_PORT);
 WebSocketServer webSocketServer;
-
-#define DEFAULT_SSID "ESP-Weather"
-#define DEFAULT_PASS "testtest"
 
 IPAddress broadcastIP;
 
-struct __attribute__((__packed__)) Measurement {
-    float temperature;
-    float humidity;
-};
-
-struct __attribute__((__packed__)) Header {
-    uint16_t count;
-    uint16_t checksum;
-};
-
-#define MAX_STORAGE (EEPROM_SIZE - sizeof(Header)) / sizeof(Measurement)
-
-struct __attribute__((__packed__)) PersistentStorage {
-    Measurement data[MAX_STORAGE];
-    Header header;
-};
-
 PersistentStorage storage;
-
-void writeMemory(PersistentStorage &s) {
-    Serial.println("write Memory");
-    unsigned char* r = (unsigned char*) &s;
-    uint16_t a = 0, b = 0;
-    for (int i = 0; i < sizeof(PersistentStorage) - 2; i++) {
-        a = (a + r[i]) % 255;
-        b = (b + a) % 255;
-    }
-    s.header.checksum = (b << 8) | a;
-    for (int i = 0; i < sizeof(PersistentStorage); i++) {
-        EEPROM.write(i, r[i]);
-    }
-    EEPROM.commit();
-}
-
-PersistentStorage readMemory() {
-    PersistentStorage s;
-    unsigned char* r = (unsigned char*) &s;
-    for (int i = 0; i < sizeof(PersistentStorage); i++) {
-        r[i] = EEPROM.read(i);
-    }
-    uint16_t a = 0, b = 0;
-    for (int i = 0; i < sizeof(PersistentStorage) - 2; i++) {
-        a = (a + r[i]) % 255;
-        b = (b + a) % 255;
-    }
-    if (s.header.checksum != ((b << 8) | a)) {
-        Serial.print("Checksum error ");
-        Serial.print(s.header.checksum);
-        Serial.print(" ");
-        Serial.println((b << 8) | a);
-        s.header.count = 0;
-    } else {
-        Serial.println("Checksum ok");
-    }
-    return s;
-}
 
 std::vector<IPAddress> vecClients; 
 
 // UDP-Config
-unsigned int localPort = 2390;
-char packetBuffer[255];                                       
-char pingBuffer[] = "pingESP8266v0.1";
-char echoBuffer[] = "echoESP8266v0.1";
+#define UDP_PACKET_BUFFER_SIZE 255
+char packetBuffer[UDP_PACKET_BUFFER_SIZE];
+const char pingBuffer[] = "pingESP8266v0.1";
+const char echoBuffer[] = "echoESP8266v0.1";
 WiFiUDP Udp;
 
 unsigned long lastTime;
@@ -116,21 +65,19 @@ const char* htmlBegin = "<html><head>\
 <script type=\"text/javascript\">";
 const char* htmlEnd = "</script></body></html>";
 
-// root-URL
 void handleRoot() {
-    // send a reply, to the IP address and port that sent us the packet we received
-    Udp.beginPacket(broadcastIP, 2390);
+    Serial.println("Sending UDP Broadcast...");
+
+    // Send UDP broadcast to other modules
+    Udp.beginPacket(broadcastIP, BROADCAST_PORT);
     Udp.write(pingBuffer);
     Udp.endPacket();
 
-    // Timer starten
+    // Start reply wait timer
     lastTime = millis();
     waitingForReplies = true;
-
-    Serial.println("Sending UDP Broadcast...");
 }
 
-// URL nicht vorhanden
 void handleNotFound(){
     String message = "File Not Found\n\n";
     message += "URI: ";
@@ -147,8 +94,6 @@ void handleNotFound(){
 }
 
 void setup(void) {
-    EEPROM.begin(EEPROM_SIZE);
-
     // Debugging
     Serial.begin(115200);
     Serial.println();
@@ -159,19 +104,26 @@ void setup(void) {
     // config does not match the pins i'm using (sda - 2; scl - 0)
     Wire.begin(2, 0);
 
+    // Here you can override the WiFiManager configuration. Leave
+    // the default autoConnect in use for the default behaviour.
+    // To force the config portal, even though the module was connected before,
+    // comment-out autoConnect and use startConfigPortal instead.
     WiFiManager wifiManager;
-    // use one or the other, never both!
     wifiManager.autoConnect(DEFAULT_SSID, DEFAULT_PASS);
     //wifiManager.startConfigPortal(DEFAULT_SSID, DEFAULT_PASS);
 
+    initMemory();
     storage = readMemory();
 
     // Wait for connection
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
+    if (WiFi.status() != WL_CONNECTED) {
+        while (WiFi.status() != WL_CONNECTED) {
+            delay(500);
+            Serial.print(".");
+        }
+        Serial.println("");
     }
-    Serial.println("");
+
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
@@ -189,7 +141,7 @@ void setup(void) {
     lastNTP = millis();
     sendNTPpacket(timeServerIP); 
 
-    Udp.begin(localPort);
+    Udp.begin(BROADCAST_PORT);
     Serial.println("ESP-Weather ready!");
 }
 
@@ -229,7 +181,7 @@ void loop(void){
     }
 
     // NTP wiederholen falls keine Antwort
-    if ((timestamp == 0) && ((millis() - lastNTP) > 2000)) {
+    if ((timestamp == 0) && ((millis() - lastNTP) > NTP_RETRY_TIMEOUT)) {
         Serial.println("NTP packet retry...");
         WiFi.hostByName(ntpServerName, timeServerIP);
         lastNTP = millis();
@@ -273,7 +225,7 @@ void loop(void){
     if (packetSize) {
         IPAddress remoteIp = Udp.remoteIP();
         // read the packet into packetBufffer
-        int len = Udp.read(packetBuffer, 255);
+        int len = Udp.read(packetBuffer, UDP_PACKET_BUFFER_SIZE);
         if (len > 0) {
             packetBuffer[len] = 0;
         }
@@ -291,7 +243,7 @@ void loop(void){
         }
     }
 
-    if (((millis() - lastTime) >= MAX_WAIT_TIME) && (waitingForReplies == true)) {
+    if (((millis() - lastTime) >= MAX_BROADCAST_WAIT_TIME) && (waitingForReplies == true)) {
         Serial.println("Timeout, sending response...");
         waitingForReplies = false;
         String message = htmlBegin;
