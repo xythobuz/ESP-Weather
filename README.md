@@ -1,6 +1,6 @@
 # ESP-Weather
 
-This started out as a project for the "Systemadministration" course in the Hochschule Ravensburg-Weingarten in the winter of 2016 / 2017.
+This [started out as a project](https://github.com/g40st/Systemadministration) for the "Systemadministration" course in the Hochschule Ravensburg-Weingarten in the winter of 2016 / 2017.
 
 ## Dependencies
 

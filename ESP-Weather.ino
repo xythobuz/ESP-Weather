@@ -13,7 +13,8 @@
 #define WEB_PORT 80
 #define BROADCAST_PORT 2390
 #define WEBSOCKET_PORT 2391
-#define NTP_PORT 2392
+#define NTP_PORT_FROM 2392
+#define NTP_PORT_TO 123
 
 #define DEFAULT_SSID "ESP-Weather"
 #define DEFAULT_PASS "testtest"
@@ -49,18 +50,20 @@ std::vector<IPAddress> vecClients;
 char packetBuffer[UDP_PACKET_BUFFER_SIZE];
 const char pingBuffer[] = "pingESP8266v0.1";
 const char echoBuffer[] = "echoESP8266v0.1";
-WiFiUDP Udp;
+WiFiUDP udp;
 
 unsigned long lastTime;
 bool waitingForReplies = false;
 
+// Using the RawGit.com service to serve the scripts directly from GitHub.
+// Consider using cdn.rawgit.com to reduce their server load.
 const char* htmlBegin = "<html><head>\
 <title>Sysadmin</title>\
-<script src=\"http://hoegerle-home.de/sysAdmin/js/jquery-3.1.1.min.js\"></script>\
-<script src=\"http://hoegerle-home.de/sysAdmin/js/bootstrap.min.js\"></script>\
-<script src=\"http://hoegerle-home.de/sysAdmin/js/Chart.bundle.min.js\"></script>\
-<script src=\"http://hoegerle-home.de/sysAdmin/js/script.js\"></script>\
-<link rel=\"stylesheet\" href=\"http://hoegerle-home.de/sysAdmin/css/bootstrap.min.css\" />\
+<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/jquery-3.1.1.min.js\"></script>\
+<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/bootstrap.min.js\"></script>\
+<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/Chart.bundle.min.js\"></script>\
+<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/script.js\"></script>\
+<link rel=\"stylesheet\" href=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/bootstrap.min.css\" />\
 </head><body>\
 <script type=\"text/javascript\">";
 const char* htmlEnd = "</script></body></html>";
@@ -69,9 +72,9 @@ void handleRoot() {
     Serial.println("Sending UDP Broadcast...");
 
     // Send UDP broadcast to other modules
-    Udp.beginPacket(broadcastIP, BROADCAST_PORT);
-    Udp.write(pingBuffer);
-    Udp.endPacket();
+    udp.beginPacket(broadcastIP, BROADCAST_PORT);
+    udp.write(pingBuffer);
+    udp.endPacket();
 
     // Start reply wait timer
     lastTime = millis();
@@ -136,12 +139,12 @@ void setup(void) {
     serverSocket.begin();
 
     // NTP-Client
-    ntp.begin(NTP_PORT);
+    ntp.begin(NTP_PORT_FROM);
     WiFi.hostByName(ntpServerName, timeServerIP); 
     lastNTP = millis();
     sendNTPpacket(timeServerIP); 
 
-    Udp.begin(BROADCAST_PORT);
+    udp.begin(BROADCAST_PORT);
     Serial.println("ESP-Weather ready!");
 }
 
@@ -221,11 +224,11 @@ void loop(void){
     }
 
     // UDP
-    int packetSize = Udp.parsePacket();
+    int packetSize = udp.parsePacket();
     if (packetSize) {
-        IPAddress remoteIp = Udp.remoteIP();
+        IPAddress remoteIp = udp.remoteIP();
         // read the packet into packetBufffer
-        int len = Udp.read(packetBuffer, UDP_PACKET_BUFFER_SIZE);
+        int len = udp.read(packetBuffer, UDP_PACKET_BUFFER_SIZE);
         if (len > 0) {
             packetBuffer[len] = 0;
         }
@@ -235,11 +238,11 @@ void loop(void){
 
         if (strcmp(packetBuffer, pingBuffer) == 0) {
             Serial.println("Broadcast");
-            Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-            Udp.print(echoBuffer);
-            Udp.endPacket();
+            udp.beginPacket(udp.remoteIP(), udp.remotePort());
+            udp.print(echoBuffer);
+            udp.endPacket();
         } else if((strcmp(packetBuffer, echoBuffer) == 0) && (waitingForReplies == true)) {
-            vecClients.push_back(Udp.remoteIP());
+            vecClients.push_back(udp.remoteIP());
         }
     }
 
@@ -279,7 +282,7 @@ void sendNTPpacket(IPAddress& address) {
     ntpPacketBuffer[14]  = 49;
     ntpPacketBuffer[15]  = 52;
 
-    ntp.beginPacket(address, 123);
+    ntp.beginPacket(address, NTP_PORT_TO);
     ntp.write(ntpPacketBuffer, NTP_PACKET_SIZE);
     ntp.endPacket();
 }
