@@ -42,7 +42,7 @@ struct __attribute__((__packed__)) Measurement {
 };
 
 struct __attribute__((__packed__)) Header {
-  uint8_t count;
+  uint16_t count;
   uint16_t checksum;
 };
 
@@ -131,7 +131,7 @@ void handleRoot() {
   lastTime = millis();
   waitingForReplies = true;
   
-  Serial.println("broadcast send");
+  Serial.println("Sending UDP Broadcast...");
 }
 
 // URL nicht vorhanden
@@ -151,13 +151,17 @@ void handleNotFound(){
 }
 
 void setup(void) {
-  EEPROM.begin(512);
+  EEPROM.begin(EEPROM_SIZE);
    
   // Debugging
   Serial.begin(115200);
-  Serial.println("");
+  Serial.println();
+  Serial.println("ESP-Weather init...");
 
-  SHT21.begin();
+  //SHT21.begin();
+  // The SHT library is simpy calling Wire.begin(), but the default
+  // config does not match the pins i'm using (sda - 2; scl - 0)
+  Wire.begin(2, 0);
   
   WiFiManager wifiManager;
   // use one or the other, never both!
@@ -190,8 +194,7 @@ void setup(void) {
   sendNTPpacket(timeServerIP); 
   
   Udp.begin(localPort);
-  Serial.println("HTTP server and UDP started");
-  
+  Serial.println("ESP-Weather ready!");
 }
 
 void loop(void){
@@ -199,7 +202,8 @@ void loop(void){
 
   // Websocket fuer Browser
   WiFiClient client = serverSocket.available();
-  if(client.connected() && webSocketServer.handshake(client)) {
+  if (client.connected() && webSocketServer.handshake(client)) {
+    Serial.println("Building WebSocket Response...");
     
     String json = "{\"H\":";
     json += String(SHT21.getHumidity());
@@ -207,18 +211,20 @@ void loop(void){
     json += "\"T\":";
     json += String(SHT21.getTemperature());
     json += ", \"EEPROM\" : [";
-    for(int i = 0; i < storage.header.count; i++) {
+    for (int i = 0; i < storage.header.count; i++) {
       json += "{\"H\":";
       json += String(storage.data[i].humidity);
       json += ",";
       json += "\"T\":";
       json += String(storage.data[i].temperature);
       json += "}";
-      if(i < storage.header.count - 1) {
+      if (i < storage.header.count - 1) {
         json += ",";
       }
     }
     json += "]}";
+
+    Serial.println("WebSocket Response:");
     Serial.println(json);
     
     webSocketServer.sendData(json);
@@ -227,14 +233,15 @@ void loop(void){
   }
 
   // NTP wiederholen falls keine Antwort
-  if((timestamp == 0) && ((millis() - lastNTP) > 2000)) {
+  if ((timestamp == 0) && ((millis() - lastNTP) > 2000)) {
+    Serial.println("NTP packet retry...");
     WiFi.hostByName(ntpServerName, timeServerIP); 
     lastNTP = millis();
     sendNTPpacket(timeServerIP); 
   }
   
   // NTP Paket vom Server erhalten
-  if(ntp.parsePacket() >= NTP_PACKET_SIZE) {
+  if (ntp.parsePacket() >= NTP_PACKET_SIZE) {
     ntp.read(ntpPacketBuffer, NTP_PACKET_SIZE);   
     unsigned long highWord = word(ntpPacketBuffer[40], ntpPacketBuffer[41]);
     unsigned long lowWord = word(ntpPacketBuffer[42], ntpPacketBuffer[43]);
@@ -243,14 +250,17 @@ void loop(void){
     unsigned long epoch = secsSince1900 - seventyYears;
     timestamp = epoch;
     timeReceived = millis();
+    Serial.print("Got NTP time: ");
     Serial.println(epoch);
   }
 
   // EEPROM-Schreiben jede Stunde
-  if((((((millis() - timeReceived) / 1000) + timestamp) % 3600) == 0) && (timestamp != 0) && (((millis() - lastStorageTime) > 100000) || storeAtBoot) ) {
+  if ((((((millis() - timeReceived) / 1000) + timestamp) % 3600) == 0)
+          && (timestamp != 0) && (((millis() - lastStorageTime) > 100000) || storeAtBoot) ) {
+      Serial.println("Storing new data packet...");
       lastStorageTime = millis();
       storeAtBoot = 0;
-      if(storage.header.count < MAX_STORAGE) {
+      if (storage.header.count < MAX_STORAGE) {
         storage.header.count++;
       } else {
         for(int i = 0; i < MAX_STORAGE - 1; i++) {
@@ -264,17 +274,18 @@ void loop(void){
   
   // UDP
   int packetSize = Udp.parsePacket();
-  if(packetSize) {
+  if (packetSize) {
     IPAddress remoteIp = Udp.remoteIP();
     // read the packet into packetBufffer
     int len = Udp.read(packetBuffer, 255);
     if (len > 0) {
       packetBuffer[len] = 0;
     }
-    
+
+    Serial.print("Got UDP packet: ");
     Serial.println(packetBuffer);
        
-    if(strcmp(packetBuffer, pingBuffer) == 0) {
+    if (strcmp(packetBuffer, pingBuffer) == 0) {
       Serial.println("Broadcast");
       Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
       Udp.print(echoBuffer);
@@ -284,8 +295,8 @@ void loop(void){
     }
   }
   
-  if(((millis() - lastTime) >= MAX_WAIT_TIME) && (waitingForReplies == true)) {
-    Serial.println("waiting done");
+  if (((millis() - lastTime) >= MAX_WAIT_TIME) && (waitingForReplies == true)) {
+    Serial.println("Timeout, sending response...");
     waitingForReplies = false;
     String message = htmlBegin;
     message += "var clients = Array(";
@@ -309,7 +320,7 @@ void loop(void){
 }
 
 void sendNTPpacket(IPAddress& address) {
-  Serial.println("sending NTP packet...");
+  Serial.println("Sending NTP packet...");
   memset(ntpPacketBuffer, 0, NTP_PACKET_SIZE);
   ntpPacketBuffer[0] = 0b11100011;   // LI, Version, Mode
   ntpPacketBuffer[1] = 0;    
@@ -324,5 +335,4 @@ void sendNTPpacket(IPAddress& address) {
   ntp.write(ntpPacketBuffer, NTP_PACKET_SIZE);
   ntp.endPacket();
 }
-
 
