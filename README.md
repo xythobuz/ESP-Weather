@@ -20,8 +20,6 @@ The JavaScript client code includes the following libraries, using their officia
 * [jQuery](https://jquery.com/)
 * [Chart.js](https://github.com/chartjs/Chart.js)
 
-The client script from this repository is served using the [RawGit Service](https://rawgit.com) development URLs. Consider using their production CDN when using this project seriously.
-
 ## License
 
     ----------------------------------------------------------------------------

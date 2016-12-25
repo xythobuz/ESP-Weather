@@ -1,37 +1,34 @@
 var arrSensor = Array();
 
-$(document).ready(function() {
+textAvailableSensors = "Available Sensors";
+textButtonNext = "Continue";
 
-    $('body').append(`<div class="container-fluid">
-            <div class="page-header">
-                <h2>Systemadministration</h2>
-            </div>
-            <div class="row" id="contentDiv">
-                <div class="col-md-5 col-lg-5">
-                    <div class="panel panel-primary">
-                        <div class="panel-heading" id="listSensorsHeading" style="font-size: 18px;">Verf&uuml;gbare Sensoren (0/0)</div>
-                        <div class="panel-body">
-                            <ul class="list-group" id="listSensors"></ul>
-                            <div id="alertDiv"></div>
-                            <button class="btn btn-primary" disabled="" id="btnSubmit">Weiter</button>
-                        </div>
+$(document).ready(function() {
+    $('#main-part').append(`
+        <div class="row" id="contentDiv">
+            <div class="col-md-5 col-lg-5">
+                <div class="panel panel-primary">
+                    <div class="panel-heading" id="listSensorsHeading" style="font-size: 18px;">
+                        ` + textAvailableSensors + ` (0/0)
+                    </div>
+                    <div class="panel-body">
+                        <ul class="list-group" id="listSensors"></ul>
+                        <div id="alertDiv"></div>
+                        <button class="btn btn-primary" disabled="" id="btnSubmit">
+                            ` + textButtonNext + `
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="footer">
-            <div class="container-fluid">
-                <p class="text-muted">&copy; Copyright 2016 by Christian H&ouml;gerle und Thomas Buck</p>
             </div>
         </div>`);
 
     // aktuelle Uhrzeit fuer die Graphen ermitteln
     var actTime = new Date();
-    actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes(); 
+    actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes();
 
     $('#listSensorsHeading').empty();
-    $('#listSensorsHeading').html("Verf&uuml;gbare Sensoren (0/" + clients.length + ")");
-    
+    $('#listSensorsHeading').html(textAvailableSensors + " (0/" + clients.length + ")");
+
     // Alle clients im Array iterieren und Websocket abfragen
     var count = [0];
     jQuery.each(clients, function(index, client) {
@@ -59,12 +56,12 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
         });
         sensor.arrEEPROM = arrEEPROM;
         arrSensor.push(sensor);
-        $('#listSensorsHeading').html("Verf&uuml;gbare Sensoren (" + sensor.id + "/" + clientsCount + ")");
+        $('#listSensorsHeading').html(textAvailableSensors + " (" + sensor.id + "/" + clientsCount + ")");
         $('#listSensors').append('<li class="list-group-item">' +
-                                    ' Sensor ' + sensor.id +  
-                                    ' | IP: ' + sensor.ip + 
-                                    ' | aktuelle Temperatur: ' + sensor.actualTemp + 
-                                    ' | aktuelle Luftfeuchtigkeit: ' + sensor.actualHum + 
+                                    ' Sensor ' + sensor.id +
+                                    ' | IP: ' + sensor.ip +
+                                    ' | aktuelle Temperatur: ' + sensor.actualTemp +
+                                    ' | aktuelle Luftfeuchtigkeit: ' + sensor.actualHum +
                                 '</li>');
 
         // Alle Sensoren erfolgreich abgefragt
@@ -82,7 +79,7 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
         }
         console.log(evt.data);
     };
-} 
+}
 
 function generateView(arrSensor, actTime) {
     $('#contentDiv').append(`<div class="col-md-12 col-lg-12">
@@ -100,10 +97,10 @@ function generateView(arrSensor, actTime) {
     jQuery.each(arrSensor, function(index, sensor) {
         $('.nav-pills').append('<li><a class="navtab" data-toggle="tab" href="#' + sensor.id + '">Sensor ' + sensor.id + '</a></li>');
     });
-    
+
     // Flag fuer gemeinsamer Graph -> true
     generateGraph(true, arrSensor, actTime);
-    
+
     $(".navtab").click(function(event) {
         $('#contentPanel').empty();
         if(event.target.text == "Home") {
@@ -126,17 +123,17 @@ function generateGraph(flag, sensor, actTime) {
                             </div>`);
     if(flag) { // ein Graph für alle Sensoren
         var length = 0;
-        jQuery.each(sensor, function(index, tmp) { 
+        jQuery.each(sensor, function(index, tmp) {
             if(length < tmp.arrEEPROM.length) {
                 length = tmp.arrEEPROM.length;
             }
         });
 
-        var labels = Array();       
+        var labels = Array();
         actHour = actTime.split(":")[0];
         for(var i = length; i > 0; i--) {
-            labels.unshift(actHour + ":00"); 
-            actHour = (actHour - 1).mod(24); 
+            labels.unshift(actHour + ":00");
+            actHour = (actHour - 1).mod(24);
         }
         labels.push(actTime);
 
@@ -145,18 +142,18 @@ function generateGraph(flag, sensor, actTime) {
 
         var tmpDataTemperature = Array();
         var tmpDataHumidity = Array();
-        jQuery.each(sensor, function(index, tmp) { 
+        jQuery.each(sensor, function(index, tmp) {
             for(var i = 0; i < (length - tmp.arrEEPROM.length); i++) {
                 tmpDataTemperature.push([]);
                 tmpDataHumidity.push([]);
             }
-            jQuery.each(tmp.arrEEPROM, function(index, value) { 
+            jQuery.each(tmp.arrEEPROM, function(index, value) {
                 tmpDataTemperature.push(value['T']);
-                tmpDataHumidity.push(value['H']);  
+                tmpDataHumidity.push(value['H']);
             });
             tmpDataTemperature.push(tmp.actualTemp);
             tmpDataHumidity.push(tmp.actualHum);
-            
+
             var lineColor = getRandomColor();
             dataTemperature.push({label: "Sensor " + tmp.id, data: tmpDataTemperature, fill: false,
                 borderWidth: 3, borderColor : lineColor,});
@@ -168,31 +165,31 @@ function generateGraph(flag, sensor, actTime) {
         });
     } else { // Graph für einzelnen Sensor
         var labels = Array();
-        
+
         var tmpDataTemperature = Array();
         var tmpDataHumidity = Array();
         actHour = actTime.split(":")[0];
         actHour = (actHour - sensor.arrEEPROM.length).mod(24);
-        jQuery.each(sensor.arrEEPROM, function(index, value) { 
+        jQuery.each(sensor.arrEEPROM, function(index, value) {
             actHour = (actHour + 1).mod(24);
-            labels.push(actHour + ":00");  
+            labels.push(actHour + ":00");
             tmpDataTemperature.push(value['T']);
-            tmpDataHumidity.push(value['H']);  
+            tmpDataHumidity.push(value['H']);
         });
-        
+
         labels.push(actTime);
         tmpDataTemperature.push(sensor.actualTemp);
         tmpDataHumidity.push(sensor.actualHum);
 
-        var dataTemperature = [{label: 'Temperatur [C]', data: tmpDataTemperature, 
+        var dataTemperature = [{label: 'Temperatur [C]', data: tmpDataTemperature,
                                 fill: false, borderWidth: 3, borderColor: '#337ab7',}];
-        var dataHumidity = [{label: 'Luftfeuchtigkeit [%RH]', data: tmpDataHumidity, 
-                                fill: false, borderWidth: 3, borderColor: '#337ab7',}]; 
+        var dataHumidity = [{label: 'Luftfeuchtigkeit [%RH]', data: tmpDataHumidity,
+                                fill: false, borderWidth: 3, borderColor: '#337ab7',}];
     }
 
     var tempCtx = $('#temperaturChart');
     var humCtx = $('#humidityChart');
-    
+
     var tempChart = new Chart(tempCtx, {
         type: 'line',
         data: {

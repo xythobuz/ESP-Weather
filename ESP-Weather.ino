@@ -54,6 +54,11 @@ void handleRoot() {
     waitingForReplies = true;
 }
 
+void handleJS() {
+    String message = F(JS_FILE);
+    server.send(200, "text/javascript", message);
+}
+
 void handleNotFound() {
     String message = "File Not Found\n\n";
     message += "URI: ";
@@ -106,6 +111,8 @@ void setup(void) {
     broadcastIP = ~WiFi.subnetMask() | WiFi.gatewayIP();
 
     server.on("/", handleRoot);
+    server.on("/index.html", handleRoot);
+    server.on("/view.js", handleJS);
     server.onNotFound(handleNotFound);
     server.begin();
 
@@ -197,7 +204,7 @@ void loop(void) {
     if (((millis() - lastTime) >= MAX_BROADCAST_WAIT_TIME) && (waitingForReplies == true)) {
         Serial.println("Timeout, sending response...");
         waitingForReplies = false;
-        String message = HTML_BEGIN;
+        String message = F(HTML_BEGIN);
         message += "var clients = Array(";
         message += "\"" + WiFi.localIP().toString() + "\"";
         if (vecClients.size() > 0) {
@@ -210,7 +217,7 @@ void loop(void) {
             }
         }
         message += ");";
-        message += HTML_END;
+        message += F(HTML_END);
 
         vecClients.clear();
 
