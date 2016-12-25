@@ -1,7 +1,7 @@
 #ifndef __STORAGE_H__
 #define __STORAGE_H__
 
-#define EEPROM_SIZE 512
+#include "config.h"
 
 struct __attribute__((__packed__)) Measurement {
     float temperature;

@@ -8,72 +8,30 @@
 #include <WiFiServer.h>
 #include <DNSServer.h>
 #include <WiFiManager.h>
+#include "config.h"
+#include "ntp.h"
 #include "storage.h"
 
-#define WEB_PORT 80
-#define BROADCAST_PORT 2390
-#define WEBSOCKET_PORT 2391
-#define NTP_PORT_FROM 2392
-#define NTP_PORT_TO 123
-
-#define DEFAULT_SSID "ESP-Weather"
-#define DEFAULT_PASS "testtest"
-
-#define MAX_BROADCAST_WAIT_TIME 550
-#define NTP_RETRY_TIMEOUT 2000
-
-// NTP-Client
-IPAddress timeServerIP; 
-const char* ntpServerName = "time.nist.gov";
-const int NTP_PACKET_SIZE = 48; 
-byte ntpPacketBuffer[NTP_PACKET_SIZE]; 
-WiFiUDP ntp;
-unsigned long timestamp = 0;
-unsigned long timeReceived = 0;
-unsigned long lastStorageTime = 0;
-byte storeAtBoot = 1;
-unsigned long lastNTP = 0;
-
-SHT21 SHT21;
+SHT21 sensor;
 ESP8266WebServer server(WEB_PORT);
 WiFiServer serverSocket(WEBSOCKET_PORT);
 WebSocketServer webSocketServer;
-
 IPAddress broadcastIP;
-
-PersistentStorage storage;
-
-std::vector<IPAddress> vecClients; 
-
-// UDP-Config
-#define UDP_PACKET_BUFFER_SIZE 255
-char packetBuffer[UDP_PACKET_BUFFER_SIZE];
-const char pingBuffer[] = "pingESP8266v0.1";
-const char echoBuffer[] = "echoESP8266v0.1";
 WiFiUDP udp;
-
-unsigned long lastTime;
+PersistentStorage storage;
+std::vector<IPAddress> vecClients; 
+char packetBuffer[UDP_PACKET_BUFFER_SIZE];
+unsigned long lastStorageTime = 0;
+byte storeAtBoot = 1;
+unsigned long lastTime = 0;
 bool waitingForReplies = false;
-
-// Using the RawGit.com service to serve the scripts directly from GitHub.
-// Consider using cdn.rawgit.com to reduce their server load.
-const char* htmlBegin = "<html><head>\
-<title>Sysadmin</title>\
-<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/jquery-3.1.1.min.js\"></script>\
-<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/bootstrap.min.js\"></script>\
-<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/Chart.bundle.min.js\"></script>\
-<script src=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/script.js\"></script>\
-<link rel=\"stylesheet\" href=\"https://rawgit.com/xythobuz/ESP-Weather/master/static/bootstrap.min.css\" />\
-</head><body>\
-<script type=\"text/javascript\">";
-const char* htmlEnd = "</script></body></html>";
 
 void handleRoot() {
     Serial.println("Sending UDP Broadcast...");
 
     // Send UDP broadcast to other modules
     udp.beginPacket(broadcastIP, BROADCAST_PORT);
-    udp.write(pingBuffer);
+    udp.write(UDP_PING_CONTENTS);
     udp.endPacket();
 
     // Start reply wait timer
@@ -81,7 +39,7 @@ void handleRoot() {
     waitingForReplies = true;
 }
 
-void handleNotFound(){
+void handleNotFound() {
     String message = "File Not Found\n\n";
     message += "URI: ";
     message += server.uri();
@@ -102,7 +60,7 @@ void setup(void) {
     Serial.println();
     Serial.println("ESP-Weather init...");
 
-    //SHT21.begin();
+    //sensor.begin();
     // The SHT library is simpy calling Wire.begin(), but the default
     // config does not match the pins i'm using (sda - 2; scl - 0)
     Wire.begin(2, 0);
@@ -138,17 +96,14 @@ void setup(void) {
 
     serverSocket.begin();
 
-    // NTP-Client
-    ntp.begin(NTP_PORT_FROM);
-    WiFi.hostByName(ntpServerName, timeServerIP); 
-    lastNTP = millis();
-    sendNTPpacket(timeServerIP); 
+    ntpInit();
 
     udp.begin(BROADCAST_PORT);
     Serial.println("ESP-Weather ready!");
 }
 
-void loop(void){
+void loop(void) {
+    ntpRun();
     server.handleClient();
 
     // Websocket fuer Browser
@@ -157,10 +112,10 @@ void loop(void){
         Serial.println("Building WebSocket Response...");
 
         String json = "{\"H\":";
-        json += String(SHT21.getHumidity());
+        json += String(sensor.getHumidity());
         json += ",";
         json += "\"T\":";
-        json += String(SHT21.getTemperature());
+        json += String(sensor.getTemperature());
         json += ", \"EEPROM\" : [";
         for (int i = 0; i < storage.header.count; i++) {
             json += "{\"H\":";
@@ -183,28 +138,6 @@ void loop(void){
         client.stop();
     }
 
-    // NTP wiederholen falls keine Antwort
-    if ((timestamp == 0) && ((millis() - lastNTP) > NTP_RETRY_TIMEOUT)) {
-        Serial.println("NTP packet retry...");
-        WiFi.hostByName(ntpServerName, timeServerIP);
-        lastNTP = millis();
-        sendNTPpacket(timeServerIP);
-    }
-
-    // NTP Paket vom Server erhalten
-    if (ntp.parsePacket() >= NTP_PACKET_SIZE) {
-        ntp.read(ntpPacketBuffer, NTP_PACKET_SIZE);
-        unsigned long highWord = word(ntpPacketBuffer[40], ntpPacketBuffer[41]);
-        unsigned long lowWord = word(ntpPacketBuffer[42], ntpPacketBuffer[43]);
-        unsigned long secsSince1900 = highWord << 16 | lowWord;
-        const unsigned long seventyYears = 2208988800UL;
-        unsigned long epoch = secsSince1900 - seventyYears;
-        timestamp = epoch;
-        timeReceived = millis();
-        Serial.print("Got NTP time: ");
-        Serial.println(epoch);
-    }
-
     // EEPROM-Schreiben jede Stunde
     if ((((((millis() - timeReceived) / 1000) + timestamp) % 3600) == 0)
             && (timestamp != 0) && (((millis() - lastStorageTime) > 100000) || storeAtBoot) ) {
@@ -218,8 +151,8 @@ void loop(void){
                 storage.data[i] = storage.data[i+1];
             }
         }
-        storage.data[storage.header.count - 1].temperature = SHT21.getTemperature();
-        storage.data[storage.header.count - 1].humidity = SHT21.getHumidity();
+        storage.data[storage.header.count - 1].temperature = sensor.getTemperature();
+        storage.data[storage.header.count - 1].humidity = sensor.getHumidity();
         writeMemory(storage);
     }
 
@@ -236,12 +169,12 @@ void loop(void){
         Serial.print("Got UDP packet: ");
         Serial.println(packetBuffer);
 
-        if (strcmp(packetBuffer, pingBuffer) == 0) {
+        if (strcmp(packetBuffer, UDP_PING_CONTENTS) == 0) {
             Serial.println("Broadcast");
             udp.beginPacket(udp.remoteIP(), udp.remotePort());
-            udp.print(echoBuffer);
+            udp.print(UDP_ECHO_CONTENTS);
             udp.endPacket();
-        } else if((strcmp(packetBuffer, echoBuffer) == 0) && (waitingForReplies == true)) {
+        } else if((strcmp(packetBuffer, UDP_ECHO_CONTENTS) == 0) && (waitingForReplies == true)) {
             vecClients.push_back(udp.remoteIP());
         }
     }
@@ -249,7 +182,7 @@ void loop(void){
     if (((millis() - lastTime) >= MAX_BROADCAST_WAIT_TIME) && (waitingForReplies == true)) {
         Serial.println("Timeout, sending response...");
         waitingForReplies = false;
-        String message = htmlBegin;
+        String message = HTML_BEGIN;
         message += "var clients = Array(";
         message += "\"" + WiFi.localIP().toString() + "\"";
         if (vecClients.size() > 0) {
@@ -262,28 +195,11 @@ void loop(void){
             }
         }
         message += ");";
-        message += htmlEnd;
+        message += HTML_END;
 
         vecClients.clear();
 
         server.send(200, "text/html", message);
     }
-}
-
-void sendNTPpacket(IPAddress& address) {
-    Serial.println("Sending NTP packet...");
-    memset(ntpPacketBuffer, 0, NTP_PACKET_SIZE);
-    ntpPacketBuffer[0] = 0b11100011; // LI, Version, Mode
-    ntpPacketBuffer[1] = 0;
-    ntpPacketBuffer[2] = 6;
-    ntpPacketBuffer[3] = 0xEC;
-    ntpPacketBuffer[12]  = 49;
-    ntpPacketBuffer[13]  = 0x4E;
-    ntpPacketBuffer[14]  = 49;
-    ntpPacketBuffer[15]  = 52;
-
-    ntp.beginPacket(address, NTP_PORT_TO);
-    ntp.write(ntpPacketBuffer, NTP_PACKET_SIZE);
-    ntp.endPacket();
 }
 
