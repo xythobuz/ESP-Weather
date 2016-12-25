@@ -1,3 +1,18 @@
+/*
+ * ESP-Weather.ino
+ *
+ * This is the main program for our distributed temperature and humidity logger
+ * with WiFi interface, based on the ESP8266 ESP-01 module and an SHT21 sensor.
+ *
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <xythobuz@xythobuz.de> & <ghost-ghost@web.de> wrote this file.  As long as
+ * you retain this notice you can do whatever you want with this stuff. If we
+ * meet some day, and you think this stuff is worth it, you can buy us a beer
+ * in return.                                   Thomas Buck & Christian Högerle
+ * ----------------------------------------------------------------------------
+ */
+
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>

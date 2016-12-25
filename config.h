@@ -1,3 +1,17 @@
+/*
+ * config.h
+ *
+ * Configuration options for ESP-Weather.
+ *
+ * ----------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <xythobuz@xythobuz.de> & <ghost-ghost@web.de> wrote this file.  As long as
+ * you retain this notice you can do whatever you want with this stuff. If we
+ * meet some day, and you think this stuff is worth it, you can buy us a beer
+ * in return.                                   Thomas Buck & Christian Högerle
+ * ----------------------------------------------------------------------------
+ */
+
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 

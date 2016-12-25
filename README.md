@@ -14,9 +14,21 @@ Download and install the following libraries to your `Arduino/libraries` folder.
 
 ### JavaScript
 
-The JavaScript client code includes the following libraries:
+The JavaScript client code includes the following libraries, using their official CDNs:
 
 * [Bootstrap](http://getbootstrap.com/)
 * [jQuery](https://jquery.com/)
 * [Chart.js](https://github.com/chartjs/Chart.js)
+
+The client script from this repository is served using the [RawGit Service](https://rawgit.com) development URLs. Consider using their production CDN when using this project seriously.
+
+## License
+
+    ----------------------------------------------------------------------------
+    "THE BEER-WARE LICENSE" (Revision 42):
+    <xythobuz@xythobuz.de> & <ghost-ghost@web.de> wrote this file.  As long as
+    you retain this notice you can do whatever you want with this stuff. If we
+    meet some day, and you think this stuff is worth it, you can buy us a beer
+    in return.                                   Thomas Buck & Christian Högerle
+    ----------------------------------------------------------------------------
 
