@@ -4,6 +4,8 @@ This [started out as a project](https://github.com/g40st/Systemadministration) f
 
 ## Dependencies
 
+The included Favicon is ['weather' by 'jkeks'](http://www.favicon.cc/?action=icon&file_id=757061).
+
 ### ESP8266
 
 Download and install the following libraries to your `Arduino/libraries` folder. Of course, you also need the [Arduino core for the ESP8266 WiFi chip](https://github.com/esp8266/Arduino) installed from the IDE Board Manager.

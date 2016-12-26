@@ -1,3 +1,15 @@
+// This is the client-side Javascript that receives the IPs of all available
+// local ESP-Weather modules, reads their values using the Websocket interface
+// and renders the graphs to visualize them.
+//
+// ----------------------------------------------------------------------------
+// "THE BEER-WARE LICENSE" (Revision 42):
+// <xythobuz@xythobuz.de> & <ghost-ghost@web.de> wrote this file.  As long as
+// you retain this notice you can do whatever you want with this stuff. If we
+// meet some day, and you think this stuff is worth it, you can buy us a beer
+// in return.                                   Thomas Buck & Christian Högerle
+// ----------------------------------------------------------------------------
+
 var arrSensor = Array();
 
 textAvailableSensors = "Available Sensors";
@@ -8,7 +20,7 @@ $(document).ready(function() {
         <div class="row" id="contentDiv">
             <div class="col-md-5 col-lg-5">
                 <div class="panel panel-primary">
-                    <div class="panel-heading" id="listSensorsHeading" style="font-size: 18px;">
+                    <div class="panel-heading" id="listSensorsHeading">
                         ` + textAvailableSensors + ` (0/0)
                     </div>
                     <div class="panel-body">
@@ -232,3 +244,4 @@ function getRandomColor() {
     }
     return color;
 }
+

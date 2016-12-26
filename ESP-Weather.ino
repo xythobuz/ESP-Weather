@@ -25,7 +25,10 @@
 #include <WiFiManager.h>
 #include "config.h"
 #include "ntp.h"
+#include "static.h"
 #include "storage.h"
+
+#define DEBUG
 
 SHT21 sensor;
 ESP8266WebServer server(WEB_PORT);
@@ -41,8 +44,10 @@ byte storeAtBoot = 1;
 unsigned long lastTime = 0;
 bool waitingForReplies = false;
 
-void handleRoot() {
+static void handleRoot() {
+#ifdef DEBUG
     Serial.println("Sending UDP Broadcast...");
+#endif // DEBUG
 
     // Send UDP broadcast to other modules
     udp.beginPacket(broadcastIP, BROADCAST_PORT);
@@ -54,12 +59,21 @@ void handleRoot() {
     waitingForReplies = true;
 }
 
-void handleJS() {
+static void handleJS() {
     String message = F(JS_FILE);
     server.send(200, "text/javascript", message);
 }
 
-void handleNotFound() {
+static void handleCSS() {
+    String message = F(CSS_FILE);
+    server.send(200, "text/css", message);
+}
+
+static void handleFavicon() {
+    server.send_P(200, faviconMimeType, (PGM_P)favicon, faviconSize);
+}
+
+static void handleNotFound() {
     String message = "File Not Found\n\n";
     message += "URI: ";
     message += server.uri();
@@ -75,10 +89,12 @@ void handleNotFound() {
 }
 
 void setup(void) {
-    // Debugging
-    Serial.begin(115200);
+    Serial.begin(DEBUG_BAUDRATE);
+
+#ifdef DEBUG
     Serial.println();
     Serial.println("ESP-Weather init...");
+#endif // DEBUG
 
     //sensor.begin();
     // The SHT library is simpy calling Wire.begin(), but the default
@@ -100,28 +116,36 @@ void setup(void) {
     if (WiFi.status() != WL_CONNECTED) {
         while (WiFi.status() != WL_CONNECTED) {
             delay(500);
+#ifdef DEBUG
             Serial.print(".");
+#endif // DEBUG
         }
+#ifdef DEBUG
         Serial.println("");
+#endif // DEBUG
     }
 
+#ifdef DEBUG
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+#endif // DEBUG
 
     broadcastIP = ~WiFi.subnetMask() | WiFi.gatewayIP();
 
     server.on("/", handleRoot);
     server.on("/index.html", handleRoot);
     server.on("/view.js", handleJS);
+    server.on("/style.css", handleCSS);
+    server.on("/favicon.ico", handleFavicon);
     server.onNotFound(handleNotFound);
     server.begin();
-
     serverSocket.begin();
-
     ntpInit();
-
     udp.begin(BROADCAST_PORT);
+
+#ifdef DEBUG
     Serial.println("ESP-Weather ready!");
+#endif // DEBUG
 }
 
 void loop(void) {
@@ -152,8 +176,10 @@ void loop(void) {
         }
         json += "]}";
 
+#ifdef DEBUG
         Serial.println("WebSocket Response:");
         Serial.println(json);
+#endif // DEBUG
 
         webSocketServer.sendData(json);
         client.flush();
@@ -163,7 +189,9 @@ void loop(void) {
     // EEPROM-Schreiben jede Stunde
     if ((((((millis() - timeReceived) / 1000) + timestamp) % 3600) == 0)
             && (timestamp != 0) && (((millis() - lastStorageTime) > 100000) || storeAtBoot) ) {
+#ifdef DEBUG
         Serial.println("Storing new data packet...");
+#endif // DEBUG
         lastStorageTime = millis();
         storeAtBoot = 0;
         if (storage.header.count < MAX_STORAGE) {
@@ -188,11 +216,15 @@ void loop(void) {
             packetBuffer[len] = 0;
         }
 
+#ifdef DEBUG
         Serial.print("Got UDP packet: ");
         Serial.println(packetBuffer);
+#endif // DEBUG
 
         if (strcmp(packetBuffer, UDP_PING_CONTENTS) == 0) {
+#ifdef DEBUG
             Serial.println("Broadcast");
+#endif // DEBUG
             udp.beginPacket(udp.remoteIP(), udp.remotePort());
             udp.print(UDP_ECHO_CONTENTS);
             udp.endPacket();
@@ -202,7 +234,10 @@ void loop(void) {
     }
 
     if (((millis() - lastTime) >= MAX_BROADCAST_WAIT_TIME) && (waitingForReplies == true)) {
+#ifdef DEBUG
         Serial.println("Timeout, sending response...");
+#endif // DEBUG
+
         waitingForReplies = false;
         String message = F(HTML_BEGIN);
         message += "var clients = Array(";

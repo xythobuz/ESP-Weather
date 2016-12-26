@@ -13,6 +13,8 @@
 # in return.                                   Thomas Buck & Christian Högerle
 # ----------------------------------------------------------------------------
 
+import binascii
+
 def fileToString(filename, js = False):
     f = open(filename, "r")
     sf = ""
@@ -44,21 +46,80 @@ def minify(text, js = False):
     text = text.replace("> <", "><")
     if js == True:
         text = text.replace("\\n ", "\\n")
+        text = text.replace("\\n\\n", "\\n")
     if (text[-1:] == ' '):
         text = text[:-1]
+    if (text[-2:] == '\\n'):
+        text = text[:-2]
+    if (text[0] == ' '):
+        text = text[1:]
+    if (text[0] == '\\') and (text[1] == 'n'):
+        text = text[2:]
     return text
+
+def getBinaryFile(filename, id):
+    f = open(filename, "rb")
+    s = "const static unsigned char " + id + "[] PROGMEM = {\n";
+    i = 0
+    c = 0
+    while True:
+        d = f.read(1)
+        if not d:
+            break
+        if i == 0:
+            s += "    "
+        s += "0x" + binascii.hexlify(d).decode("utf-8") + ", "
+        i += 1
+        c += 1
+        if i >= 8:
+            i = 0
+            s += "\n"
+    if i == 0:
+        s = s[:-3]
+    else:
+        s = s[:-2]
+    s += "\n"
+    s += "};"
+    s = "const static unsigned int " + id + "Size = " + str(c) + ";\n" + "const static char faviconMimeType[] PROGMEM = \"image/x-icon\";\n" + s;
+    return s
 
 def getAsDefine(name, text):
     return "#define " + name + " \"" + text.replace("\"", "\\\"") + "\""
 
+print("Preparing static.h output file...")
+f = open("static.h", "w")
+f.write("// !!DO NOT EDIT, AUTO-GENERATED FILE!!\n")
+f.write("// Use convert-static.py to recreate this.\n")
+f.write("\n")
+f.write("#ifndef __STATIC_H__\n")
+f.write("#define __STATIC_H__\n")
+f.write("\n")
+
+print("Processing template.html...")
 template = fileToString("template.html")
 template = minify(template)
 templates = template.split(" /* %% INSERT_CLIENT_LIST_HERE %% */ ")
 
-print(getAsDefine("HTML_BEGIN", templates[0]))
-print(getAsDefine("HTML_END", templates[1]))
+f.write(getAsDefine("HTML_BEGIN", templates[0]) + "\n")
+f.write(getAsDefine("HTML_END", templates[1]) + "\n")
 
+print("Processing client-script.js...")
 js = fileToString("client-script.js", True)
 js = minify(js, True)
-print(getAsDefine("JS_FILE", js))
+f.write(getAsDefine("JS_FILE", js) + "\n")
+
+print("Processing client-style.css...")
+css = fileToString("client-style.css", True)
+css = minify(css)
+f.write(getAsDefine("CSS_FILE", css) + "\n")
+f.write("\n")
+
+print("Processing favicon.ico...")
+f.write(getBinaryFile("favicon.ico", "favicon") + "\n")
+
+print("Done!")
+f.write("\n")
+f.write("#endif // __STATIC_H__\n")
+f.write("\n")
+f.close()
 
