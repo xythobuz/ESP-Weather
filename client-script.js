@@ -10,8 +10,9 @@
 // in return.                                   Thomas Buck & Christian Högerle
 // ----------------------------------------------------------------------------
 
-var arrSensor = Array();
+var arrSensor = Array(); // Data received from Websockets
 
+// Text Strings. Change these to translate.
 textAvailableSensors = "Available Sensors";
 textButtonNext = "Continue";
 homeTabName = "Home";
@@ -23,28 +24,36 @@ humidityLabel = 'Humidity [%RH]';
 temperatureHeading = "Temperature";
 humidityHeading = "Humidity";
 
-$(document).ready(function() {
-    $('#main-part').append(`
-        <div class="row" id="contentDiv">
-            <div class="col-md-5 col-lg-5">
-                <div class="panel panel-primary">
-                    <div class="panel-heading" id="listSensorsHeading">
-                        ` + textAvailableSensors + ` (0/0)
-                    </div>
-                    <div class="panel-body">
-                        <ul class="list-group" id="listSensors"></ul>
-                        <div id="alertDiv"></div>
-                        <button class="btn btn-primary" disabled="" id="btnSubmit">
-                            ` + textButtonNext + `
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>`);
+// Colors
+singleChartTempColor = "#337ab7";
+singleChartHumidColor = "#337ab7";
+preDefinedColors = Array(
+    "#337ab7", "#ff0000", "#00ff00"
+);
 
-    // Get current client-time for the graph X-axis labels
-    var actTime = new Date();
-    actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes();
+// Get current client-time for the graph X-axis labels
+var actTime = new Date();
+actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes();
+
+// Draw initial view when the page has been loaded
+$(document).ready(initialView);
+
+function initialView() {
+    $('#contentDiv').empty();
+    $('#contentDiv').append(`<div class="col-sm-12 col-md-12 col-lg-12">
+        <div class="panel panel-primary">
+            <div class="panel-heading" id="listSensorsHeading">
+                ` + textAvailableSensors + ` (0/0)
+            </div>
+            <div class="panel-body">
+                <ul class="list-group" id="listSensors"></ul>
+                <div id="alertDiv"></div>
+                <button class="btn btn-primary" disabled="" id="btnSubmit">
+                    ` + textButtonNext + `
+                </button>
+            </div>
+        </div>
+    </div>`);
 
     $('#listSensorsHeading').empty();
     $('#listSensorsHeading').html(textAvailableSensors + " (0/" + clients.length + ")");
@@ -58,9 +67,9 @@ $(document).ready(function() {
     // Button to continue to graph view
     $("#btnSubmit").click(function(event) {
         $('#contentDiv').empty();
-        generateView(arrSensor, actTime);
+        generateView(arrSensor);
     });
-});
+}
 
 function webSocket(wsUri, wsPort, count, clientsCount) {
     websocket = new WebSocket("ws://" + wsUri + ":" + wsPort + "/");
@@ -102,8 +111,8 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
     };
 }
 
-function generateView(arrSensor, actTime) {
-    $('#contentDiv').append(`<div class="col-md-12 col-lg-12">
+function generateView(arrSensor) {
+    $('#contentDiv').append(`<div class="col-sm-12 col-md-12 col-lg-12">
                                 <div class="panel panel-primary">
                                     <ul class="nav nav-pills">
                                         <li class="active"><a class="navtab" data-toggle="tab" href="#home">` + homeTabName + `</a></li>
@@ -120,26 +129,30 @@ function generateView(arrSensor, actTime) {
     });
 
     // flag for combined plot -> true
-    generateGraph(true, arrSensor, actTime);
+    generateGraph(true, arrSensor);
 
     $(".navtab").click(function(event) {
         $('#contentPanel').empty();
         if(event.target.text == homeTabName) {
             // flag for combined plot -> true
-            generateGraph(true, arrSensor, actTime);
+            generateGraph(true, arrSensor);
         } else {
-            generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)], actTime);
+            generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)]);
         }
     });
 }
 
-function generateGraph(flag, sensor, actTime) {
+function generateGraph(flag, sensor) {
     $('#contentPanel').append(`<div class="row">
                                 <div class="col-sm-12 col-md-12 col-lg-6">
-                                    <canvas id="temperaturChart"></canvas>
+                                    <div id="temperatureDiv" class="embed-responsive embed-responsive-4by3">
+                                        <canvas id="temperatureChart"></canvas>
+                                    </div>
                                 </div>
                                 <div class="col-sm-12 col-md-12 col-lg-6">
-                                    <canvas id="humidityChart"></canvas>
+                                    <div id="humidityDiv" class="embed-responsive embed-responsive-4by3">
+                                        <canvas id="humidityChart"></canvas>
+                                    </div>
                                 </div>
                             </div>`);
     if (flag) {
@@ -176,7 +189,7 @@ function generateGraph(flag, sensor, actTime) {
             tmpDataTemperature.push(tmp.currentTemp);
             tmpDataHumidity.push(tmp.currentHum);
 
-            var lineColor = getRandomColor();
+            var lineColor = getColor(index);
             dataTemperature.push({label: sensorTabName + " " + tmp.id, data: tmpDataTemperature, fill: false,
                 borderWidth: 3, borderColor : lineColor,});
             dataHumidity.push({label: sensorTabName + " " + tmp.id, data: tmpDataHumidity, fill: false,
@@ -205,13 +218,18 @@ function generateGraph(flag, sensor, actTime) {
         tmpDataHumidity.push(sensor.currentHum);
 
         var dataTemperature = [{label: temperatureLabel, data: tmpDataTemperature,
-                                fill: false, borderWidth: 3, borderColor: '#337ab7',}];
+                                fill: false, borderWidth: 3, borderColor: singleChartTempColor,}];
         var dataHumidity = [{label: humidityLabel, data: tmpDataHumidity,
-                                fill: false, borderWidth: 3, borderColor: '#337ab7',}];
+                                fill: false, borderWidth: 3, borderColor: singleChartHumidColor,}];
     }
 
-    var tempCtx = $('#temperaturChart');
+    var tempCtx = $('#temperatureChart');
     var humCtx = $('#humidityChart');
+
+    //tempCtx.attr('width', $('#temperatureDiv').width());
+    //tempCtx.attr('height', $('#temperatureDiv').height());
+    //humCtx.attr('width', $('#humidityDiv').width());
+    //humCtx.attr('height', $('#humidityDiv').height());
 
     var tempChart = new Chart(tempCtx, {
         type: 'line',
@@ -223,7 +241,10 @@ function generateGraph(flag, sensor, actTime) {
             title: {
                 display: true,
                 text: temperatureHeading
-            }
+            },
+            responsive: true,
+            maintainAspectRatio: true,
+            scaleOverride: true
         }
     });
 
@@ -237,7 +258,10 @@ function generateGraph(flag, sensor, actTime) {
             title: {
                 display: true,
                 text: humidityHeading
-            }
+            },
+            responsive: true,
+            maintainAspectRatio: true,
+            scaleOverride: true
         }
     });
 }
@@ -245,6 +269,14 @@ function generateGraph(flag, sensor, actTime) {
 // Modulo-Bug: http://javascript.about.com/od/problemsolving/a/modulobug.htm
 Number.prototype.mod = function(n) {
     return ((this%n)+n)%n;
+}
+
+function getColor(index) {
+    if (index < preDefinedColors.length) {
+        return preDefinedColors[index];
+    } else {
+        return getRandomColor();
+    }
 }
 
 function getRandomColor() {
