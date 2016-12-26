@@ -14,6 +14,14 @@ var arrSensor = Array();
 
 textAvailableSensors = "Available Sensors";
 textButtonNext = "Continue";
+homeTabName = "Home";
+sensorTabName = "Sensor";
+errorMessage = "Couldn't read sensor with IP: ";
+errorTitle = "Error: ";
+temperatureLabel = 'Temperature [C]';
+humidityLabel = 'Humidity [%RH]';
+temperatureHeading = "Temperature";
+humidityHeading = "Humidity";
 
 $(document).ready(function() {
     $('#main-part').append(`
@@ -34,20 +42,20 @@ $(document).ready(function() {
             </div>
         </div>`);
 
-    // aktuelle Uhrzeit fuer die Graphen ermitteln
+    // Get current client-time for the graph X-axis labels
     var actTime = new Date();
     actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes();
 
     $('#listSensorsHeading').empty();
     $('#listSensorsHeading').html(textAvailableSensors + " (0/" + clients.length + ")");
 
-    // Alle clients im Array iterieren und Websocket abfragen
+    // Iterate all given client IPs and get their data using Websocket
     var count = [0];
     jQuery.each(clients, function(index, client) {
         webSocket(client, "2391", count, clients.length);
     });
 
-    // Submit-Button fuer die Formulareingabe
+    // Button to continue to graph view
     $("#btnSubmit").click(function(event) {
         $('#contentDiv').empty();
         generateView(arrSensor, actTime);
@@ -61,7 +69,7 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
     websocket.onmessage = function(evt) {
         var jsonData = jQuery.parseJSON(evt.data);
         count[0]++;
-        var sensor = {id: count[0], ip: wsUri, actualTemp: jsonData['T'], actualHum: jsonData['H']};
+        var sensor = {id: count[0], ip: wsUri, currentTemp: jsonData['T'], currentHum: jsonData['H']};
         var arrEEPROM = Array();
         jQuery.each(jsonData['EEPROM'], function(index, data) {
             arrEEPROM.push(data);
@@ -72,22 +80,23 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
         $('#listSensors').append('<li class="list-group-item">' +
                                     ' Sensor ' + sensor.id +
                                     ' | IP: ' + sensor.ip +
-                                    ' | aktuelle Temperatur: ' + sensor.actualTemp +
-                                    ' | aktuelle Luftfeuchtigkeit: ' + sensor.actualHum +
+                                    ' | Temperature: ' + sensor.currentTemp +
+                                    ' | Humidity: ' + sensor.currentHum +
                                 '</li>');
 
-        // Alle Sensoren erfolgreich abgefragt
+        // Enable continue buttons when all modules have been reached
         if(count[0] == clientsCount) {
             $('#btnSubmit').prop("disabled", false);
         }
     };
     websocket.onerror = function(evt) {
         if($('#websocketError').length ) {
-            $('.alert-danger').append('Sensor mit der IP:' + wsUri + ' konnte nicht abgefragt werden! <br>');
+            $('.alert-danger').append(errorMessage + wsUri + '<br>');
         } else {
             $('#alertDiv').append('<div class="alert alert-danger" id="websocketError">' +
-                                    '<strong>Fehler:</strong><br>Sensor mit der IP:' + wsUri + ' konnte nicht abgefragt werden! <br>' +
-                              '</div>');
+                                    '<strong>' + errorTitle
+                                    + '</strong><br>' + errorMessage
+                                    + wsUri + '<br></div>');
         }
         console.log(evt.data);
     };
@@ -97,7 +106,7 @@ function generateView(arrSensor, actTime) {
     $('#contentDiv').append(`<div class="col-md-12 col-lg-12">
                                 <div class="panel panel-primary">
                                     <ul class="nav nav-pills">
-                                        <li class="active"><a class="navtab" data-toggle="tab" href="#home">Home</a></li>
+                                        <li class="active"><a class="navtab" data-toggle="tab" href="#home">` + homeTabName + `</a></li>
                                     </ul>
                                     <div class="panel-body">
                                         <div id="contentPanel">
@@ -107,16 +116,16 @@ function generateView(arrSensor, actTime) {
                             </div>`);
 
     jQuery.each(arrSensor, function(index, sensor) {
-        $('.nav-pills').append('<li><a class="navtab" data-toggle="tab" href="#' + sensor.id + '">Sensor ' + sensor.id + '</a></li>');
+        $('.nav-pills').append('<li><a class="navtab" data-toggle="tab" href="#' + sensor.id + '">' + sensorTabName + ' ' + sensor.id + '</a></li>');
     });
 
-    // Flag fuer gemeinsamer Graph -> true
+    // flag for combined plot -> true
     generateGraph(true, arrSensor, actTime);
 
     $(".navtab").click(function(event) {
         $('#contentPanel').empty();
-        if(event.target.text == "Home") {
-            // Flag fuer gemeinsamer Graph -> true
+        if(event.target.text == homeTabName) {
+            // flag for combined plot -> true
             generateGraph(true, arrSensor, actTime);
         } else {
             generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)], actTime);
@@ -133,7 +142,8 @@ function generateGraph(flag, sensor, actTime) {
                                     <canvas id="humidityChart"></canvas>
                                 </div>
                             </div>`);
-    if(flag) { // ein Graph für alle Sensoren
+    if (flag) {
+        // one plot for all sensors
         var length = 0;
         jQuery.each(sensor, function(index, tmp) {
             if(length < tmp.arrEEPROM.length) {
@@ -155,7 +165,7 @@ function generateGraph(flag, sensor, actTime) {
         var tmpDataTemperature = Array();
         var tmpDataHumidity = Array();
         jQuery.each(sensor, function(index, tmp) {
-            for(var i = 0; i < (length - tmp.arrEEPROM.length); i++) {
+            for (var i = 0; i < (length - tmp.arrEEPROM.length); i++) {
                 tmpDataTemperature.push([]);
                 tmpDataHumidity.push([]);
             }
@@ -163,19 +173,20 @@ function generateGraph(flag, sensor, actTime) {
                 tmpDataTemperature.push(value['T']);
                 tmpDataHumidity.push(value['H']);
             });
-            tmpDataTemperature.push(tmp.actualTemp);
-            tmpDataHumidity.push(tmp.actualHum);
+            tmpDataTemperature.push(tmp.currentTemp);
+            tmpDataHumidity.push(tmp.currentHum);
 
             var lineColor = getRandomColor();
-            dataTemperature.push({label: "Sensor " + tmp.id, data: tmpDataTemperature, fill: false,
+            dataTemperature.push({label: sensorTabName + " " + tmp.id, data: tmpDataTemperature, fill: false,
                 borderWidth: 3, borderColor : lineColor,});
-            dataHumidity.push({label: "Sensor " + tmp.id, data: tmpDataHumidity, fill: false,
+            dataHumidity.push({label: sensorTabName + " " + tmp.id, data: tmpDataHumidity, fill: false,
                 borderWidth: 3, borderColor : lineColor,});
 
             tmpDataTemperature = [];
             tmpDataHumidity = [];
         });
-    } else { // Graph für einzelnen Sensor
+    } else {
+        // plot for one sensor
         var labels = Array();
 
         var tmpDataTemperature = Array();
@@ -190,12 +201,12 @@ function generateGraph(flag, sensor, actTime) {
         });
 
         labels.push(actTime);
-        tmpDataTemperature.push(sensor.actualTemp);
-        tmpDataHumidity.push(sensor.actualHum);
+        tmpDataTemperature.push(sensor.currentTemp);
+        tmpDataHumidity.push(sensor.currentHum);
 
-        var dataTemperature = [{label: 'Temperatur [C]', data: tmpDataTemperature,
+        var dataTemperature = [{label: temperatureLabel, data: tmpDataTemperature,
                                 fill: false, borderWidth: 3, borderColor: '#337ab7',}];
-        var dataHumidity = [{label: 'Luftfeuchtigkeit [%RH]', data: tmpDataHumidity,
+        var dataHumidity = [{label: humidityLabel, data: tmpDataHumidity,
                                 fill: false, borderWidth: 3, borderColor: '#337ab7',}];
     }
 
@@ -211,7 +222,7 @@ function generateGraph(flag, sensor, actTime) {
         options: {
             title: {
                 display: true,
-                text: 'Temperaturverlauf'
+                text: temperatureHeading
             }
         }
     });
@@ -225,7 +236,7 @@ function generateGraph(flag, sensor, actTime) {
         options: {
             title: {
                 display: true,
-                text: 'Luftfeuchtigkeitverlauf'
+                text: humidityHeading
             }
         }
     });
