@@ -2,6 +2,18 @@
 
 This [started out as a project](https://github.com/g40st/Systemadministration) for the "Systemadministration" course in the Hochschule Ravensburg-Weingarten in the winter of 2016 / 2017.
 
+## Build Steps
+
+To avoid having to do multiple steps on firmware changes, all static data is compiled into the firmware itself. The included Python 3 script `convert-static.py` should be used to convert the static files (HTML, CSS, JS and the Favicon) into the `static.h` header used by the code.
+
+When doing changes to any static files, simpy run `./convert-static.py` and then build and upload in the Arduino IDE.
+
+## Local Webinterface development
+
+To quickly test changes on the frontend code without having to recompile, use the `test.html` file in a Webbrowser. You need to have an ESP-Weather module running in your network and enter the IP in the html page.
+
+Of course, any changes to `template.html` should also be done to `test.html`.
+
 ## Dependencies
 
 The included Favicon is ['weather' by 'jkeks'](http://www.favicon.cc/?action=icon&file_id=757061).

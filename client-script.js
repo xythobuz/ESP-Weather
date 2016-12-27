@@ -10,8 +10,6 @@
 // in return.                                   Thomas Buck & Christian Högerle
 // ----------------------------------------------------------------------------
 
-var arrSensor = Array(); // Data received from Websockets
-
 // Text Strings. Change these to translate.
 textAvailableSensors = "Available Sensors";
 textButtonNext = "Continue";
@@ -35,26 +33,55 @@ preDefinedColors = Array(
 var actTime = new Date();
 actTime = actTime.getHours() + ":" + (actTime.getMinutes() < 10 ? '0':'') + actTime.getMinutes();
 
+var arrSensor = Array(); // Data received from Websockets
+var currentState = "initial"; // "initial", "main", "1", "2", ...
+
 // Draw initial view when the page has been loaded
-$(document).ready(initialView);
+$(document).ready(resizeAndRedraw);
+
+// Match graph canvases to their parent containers on resize
+$(window).on('resize', resizeAndRedraw, false);
+
+// Redraw current graph view, used for resizing
+function redraw(animate) {
+    if (currentState === "initial") {
+        initialView();
+    } else if (currentState === "main") {
+        generateView(arrSensor, animate);
+    } else {
+        var n = Math.floor(Number(currentState));
+        if ((String(n) === currentState) && (n >= 0)) {
+            generateGraph(false, arrSensor[(currentState - 1)], animate);
+        } else {
+            console.log("Invalid state: " + currentState);
+        }
+    }
+}
+
+function resize() {
+    $("canvas").each(function(i, el) {
+        $(el).attr({
+            "width":$(el).parent().width(),
+            "height":$(el).parent().outerHeight()
+        });
+    });
+}
+
+function resizeAndRedraw(animate) {
+    resize();
+    redraw(animate);
+}
 
 function initialView() {
-    $('#contentDiv').empty();
-    $('#contentDiv').append(`<div class="col-sm-12 col-md-12 col-lg-12">
-        <div class="panel panel-primary">
-            <div class="panel-heading" id="listSensorsHeading">
-                ` + textAvailableSensors + ` (0/0)
-            </div>
-            <div class="panel-body">
-                <ul class="list-group" id="listSensors"></ul>
-                <div id="alertDiv"></div>
-                <button class="btn btn-primary" disabled="" id="btnSubmit">
-                    ` + textButtonNext + `
-                </button>
-            </div>
-        </div>
-    </div>`);
+    // Show first page and hide the graphs
+    $('#startDiv').show();
+    $('#dataDiv').hide();
 
+    // Reset the button text
+    $('#btnSubmit').empty();
+    $('#btnSubmit').html(textButtonNext);
+
+    // Reset heading with number of clients
     $('#listSensorsHeading').empty();
     $('#listSensorsHeading').html(textAvailableSensors + " (0/" + clients.length + ")");
 
@@ -66,8 +93,8 @@ function initialView() {
 
     // Button to continue to graph view
     $("#btnSubmit").click(function(event) {
-        $('#contentDiv').empty();
-        generateView(arrSensor);
+        currentState = "main";
+        resizeAndRedraw(true);
     });
 }
 
@@ -107,54 +134,44 @@ function webSocket(wsUri, wsPort, count, clientsCount) {
                                     + '</strong><br>' + errorMessage
                                     + wsUri + '<br></div>');
         }
-        console.log(evt.data);
+        console.log("WebSocket Error: " + evt.data);
     };
 }
 
-function generateView(arrSensor) {
-    $('#contentDiv').append(`<div class="col-sm-12 col-md-12 col-lg-12">
-                                <div class="panel panel-primary">
-                                    <ul class="nav nav-pills">
-                                        <li class="active"><a class="navtab" data-toggle="tab" href="#home">` + homeTabName + `</a></li>
-                                    </ul>
-                                    <div class="panel-body">
-                                        <div id="contentPanel">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>`);
+function generateView(arrSensor, animation) {
+    // Hide first page, show graph page
+    $('#startDiv').hide();
+    $('#dataDiv').show();
 
+    // Add home tab
+    $('.nav-pills').empty();
+    $('.nav-pills').append('<li class="active"><a id="homebut" class="navtab" data-toggle="tab" href="#home">' + homeTabName + '</a></li>');
+
+    // Add tabs for all sensors
     jQuery.each(arrSensor, function(index, sensor) {
-        $('.nav-pills').append('<li><a class="navtab" data-toggle="tab" href="#' + sensor.id + '">' + sensorTabName + ' ' + sensor.id + '</a></li>');
+        $('.nav-pills').append('<li><a id="sensbut" class="navtab" data-toggle="tab" href="#' + sensor.id + '">' + sensorTabName + ' ' + sensor.id + '</a></li>');
     });
 
     // flag for combined plot -> true
-    generateGraph(true, arrSensor);
+    generateGraph(true, arrSensor, animation);
 
-    $(".navtab").click(function(event) {
-        $('#contentPanel').empty();
-        if(event.target.text == homeTabName) {
-            // flag for combined plot -> true
-            generateGraph(true, arrSensor);
-        } else {
-            generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)]);
-        }
+    // Handler for "Home" button, drawing combined graph
+    $("#homebut").click(function(event) {
+        // flag for combined plot -> true
+        generateGraph(true, arrSensor, true);
+        currentState = "main";
+    });
+
+    // Handler for single sensor buttons
+    $("#sensbut").click(function(event) {
+        generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)], true);
+        currentState = event.target.text.split(" ")[1];
     });
 }
 
-function generateGraph(flag, sensor) {
-    $('#contentPanel').append(`<div class="row">
-                                <div class="col-sm-12 col-md-12 col-lg-6">
-                                    <div id="temperatureDiv" class="embed-responsive embed-responsive-4by3">
-                                        <canvas id="temperatureChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="col-sm-12 col-md-12 col-lg-6">
-                                    <div id="humidityDiv" class="embed-responsive embed-responsive-4by3">
-                                        <canvas id="humidityChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>`);
+function generateGraph(flag, sensor, anim) {
+    resize();
+
     if (flag) {
         // one plot for all sensors
         var length = 0;
@@ -226,10 +243,30 @@ function generateGraph(flag, sensor) {
     var tempCtx = $('#temperatureChart');
     var humCtx = $('#humidityChart');
 
-    //tempCtx.attr('width', $('#temperatureDiv').width());
-    //tempCtx.attr('height', $('#temperatureDiv').height());
-    //humCtx.attr('width', $('#humidityDiv').width());
-    //humCtx.attr('height', $('#humidityDiv').height());
+    var tempOptions = {
+        title: {
+            display: true,
+            text: temperatureHeading
+        },
+        responsive: true,
+        maintainAspectRatio: true,
+        scaleOverride: true,
+    };
+
+    var humOptions = {
+        title: {
+            display: true,
+            text: humidityHeading
+        },
+        responsive: true,
+        maintainAspectRatio: true,
+        scaleOverride: true,
+    };
+
+    if (!anim) {
+        tempOptions.animation = false;
+        humOptions.animation = false;
+    }
 
     var tempChart = new Chart(tempCtx, {
         type: 'line',
@@ -237,15 +274,7 @@ function generateGraph(flag, sensor) {
             labels: labels,
             datasets: dataTemperature,
         },
-        options: {
-            title: {
-                display: true,
-                text: temperatureHeading
-            },
-            responsive: true,
-            maintainAspectRatio: true,
-            scaleOverride: true
-        }
+        options: tempOptions
     });
 
     var humCharts = new Chart(humCtx, {
@@ -254,15 +283,7 @@ function generateGraph(flag, sensor) {
             labels: labels,
             datasets: dataHumidity,
         },
-        options: {
-            title: {
-                display: true,
-                text: humidityHeading
-            },
-            responsive: true,
-            maintainAspectRatio: true,
-            scaleOverride: true
-        }
+        options: humOptions
     });
 }
 

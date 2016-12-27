@@ -37,6 +37,42 @@
             <div class="page-header">
                 <h2>ESP-Weather <small>v2</small></h2>
             </div>
+            <div class="row" id="contentDiv">
+                <div id="startDiv" class="col-sm-12 col-md-12 col-lg-12" style="display: none;">
+                    <div class="panel panel-primary">
+                        <div class="panel-heading" id="listSensorsHeading">
+                        </div>
+                        <div class="panel-body">
+                            <ul class="list-group" id="listSensors"></ul>
+                            <div id="alertDiv"></div>
+                            <button class="btn btn-primary" disabled="" id="btnSubmit">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="dataDiv" class="col-sm-12 col-md-12 col-lg-12" style="display: none;">
+                    <div class="panel panel-primary">
+                        <ul class="nav nav-pills">
+                        </ul>
+                        <div class="panel-body">
+                            <div id="contentPanel">
+                                <div class="row">
+                                    <div class="col-sm-12 col-md-12 col-lg-6">
+                                        <div id="temperatureDiv" class="embed-responsive embed-responsive-4by3">
+                                            <canvas id="temperatureChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-12 col-md-12 col-lg-6">
+                                        <div id="humidityDiv" class="embed-responsive embed-responsive-4by3">
+                                            <canvas id="humidityChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="footer">
             <div class="container">
