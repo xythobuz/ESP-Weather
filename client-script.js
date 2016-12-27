@@ -13,7 +13,8 @@
 // Text Strings. Change these to translate.
 textAvailableSensors = "Available Sensors";
 textButtonNext = "Continue";
-homeTabName = "Home";
+backTabName = '<span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span>';
+homeTabName = '<span class="glyphicon glyphicon-home" aria-hidden="true"></span>';
 sensorTabName = "Sensor";
 errorMessage = "Couldn't read sensor with IP: ";
 errorTitle = "Error: ";
@@ -86,6 +87,8 @@ function initialView() {
     $('#listSensorsHeading').html(textAvailableSensors + " (0/" + clients.length + ")");
 
     // Iterate all given client IPs and get their data using Websocket
+    $('#listSensors').empty();
+    arrSensor = Array();
     var count = [0];
     jQuery.each(clients, function(index, client) {
         webSocket(client, "2391", count, clients.length);
@@ -144,16 +147,25 @@ function generateView(arrSensor, animation) {
     $('#dataDiv').show();
 
     // Add home tab
-    $('.nav-pills').empty();
-    $('.nav-pills').append('<li class="active"><a id="homebut" class="navtab" data-toggle="tab" href="#home">' + homeTabName + '</a></li>');
+    $('#navbar').empty();
+    $('#navbar').append('<li><a id="backbut" class="navtab" data-toggle="tab" href="#start" aria-label="start page">' + backTabName + '</a></li>');
+    $('#navbar').append('<li class="active"><a id="homebut" class="navtab" data-toggle="tab" href="#home">' + homeTabName + '</a></li>');
 
-    // Add tabs for all sensors
-    jQuery.each(arrSensor, function(index, sensor) {
-        $('.nav-pills').append('<li><a id="sensbut" class="navtab" data-toggle="tab" href="#' + sensor.id + '">' + sensorTabName + ' ' + sensor.id + '</a></li>');
-    });
+    if (arrSensor.length > 1) {
+        // Add tabs for all sensors
+        jQuery.each(arrSensor, function(index, sensor) {
+            $('#navbar').append('<li><a id="sensbut" class="navtab" data-toggle="tab" href="#' + sensor.id + '">' + sensorTabName + ' ' + sensor.id + '</a></li>');
+        });
+    }
 
     // flag for combined plot -> true
     generateGraph(true, arrSensor, animation);
+
+    // Handler for "back" button, returning to first page
+    $("#backbut").click(function(event) {
+        currentState = "initial";
+        redraw();
+    });
 
     // Handler for "Home" button, drawing combined graph
     $("#homebut").click(function(event) {
@@ -162,11 +174,13 @@ function generateView(arrSensor, animation) {
         currentState = "main";
     });
 
-    // Handler for single sensor buttons
-    $("#sensbut").click(function(event) {
-        generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)], true);
-        currentState = event.target.text.split(" ")[1];
-    });
+    if (arrSensor.length > 1) {
+        // Handler for single sensor buttons
+        $("#sensbut").click(function(event) {
+            generateGraph(false, arrSensor[(event.target.text.split(" ")[1] - 1)], true);
+            currentState = event.target.text.split(" ")[1];
+        });
+    }
 }
 
 function generateGraph(flag, sensor, anim) {
