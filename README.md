@@ -2,6 +2,12 @@
 
 This [started out as a project](https://github.com/g40st/Systemadministration) for the "Systemadministration" course in the Hochschule Ravensburg-Weingarten in the winter of 2016 / 2017.
 
+## Hardware
+
+You need an Espressif ESP8266 module. We've used the smallest and cheapest available one, [ESP-01](http://www.esp8266.com/wiki/doku.php?id=esp8266-module-family#esp-01). The temperature and humidity sensor in use is the [Sensirion SHT21](https://www.sensirion.com/de/produkte/feuchtesensoren/feuchte-temperatursensor-sht2x-digital-i2c-genauigkeit/) because of it's low price, digital interface, good accuracy and many cheap generic breakout boards available.
+
+[![Hardware Schematic](https://i.imgur.com/1maI2lO.png)](https://i.imgur.com/1maI2lO.png)
+
 ## Build Steps
 
 To avoid having to do multiple steps on firmware changes, all static data is compiled into the firmware itself. The included Python 3 script `convert-static.py` should be used to convert the static files (HTML, CSS, JS and the Favicon) into the `static.h` header used by the code.
