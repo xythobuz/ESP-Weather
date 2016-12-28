@@ -2,6 +2,12 @@
 
 This [started out as a project](https://github.com/g40st/Systemadministration) for the "Systemadministration" course in the Hochschule Ravensburg-Weingarten in the winter of 2016 / 2017.
 
+## Idea
+
+The core concept of this project is to create very cheap WiFi temperature and humidity sensors that can be placed in different locations inside the same wireless network. When any one is opened by the user using a Webbrowser, it will automatically discover all other available modules in the local network (using a UDP broadcast) and visualize their data values. The procedure is visualized in the following animation:
+
+[![Connection order animation](https://i.imgur.com/6t5W36G.gif)](https://i.imgur.com/6t5W36G.gif)
+
 ## Hardware
 
 You need an Espressif ESP8266 module. We've used the smallest and cheapest available one, [ESP-01](http://www.esp8266.com/wiki/doku.php?id=esp8266-module-family#esp-01). The temperature and humidity sensor in use is the [Sensirion SHT21](https://www.sensirion.com/de/produkte/feuchtesensoren/feuchte-temperatursensor-sht2x-digital-i2c-genauigkeit/) because of it's low price, digital interface, good accuracy and many cheap generic breakout boards available.
